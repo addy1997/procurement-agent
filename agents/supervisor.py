@@ -47,6 +47,10 @@ class ProcurementSupervisor:
             print("✨ Found matching experience in memory!")
             return f"[MEMO: RECALLED FROM PREVIOUS TASK]\n{past_experience[0]['recommendation']}"
 
+        # Voyage AI free tier = 3 RPM. Wait before the next embed call in LAPTOP_FINDER.
+        print("⏳ Rate-limit cooldown (22s) before agent pipeline...")
+        time.sleep(22)
+
         task_id = self.db.tasks.insert_one({
             "query": user_query,
             "status": "in_progress",
@@ -57,34 +61,24 @@ class ProcurementSupervisor:
 
         for step in range(5):
             current_state = self.db.tasks.find_one({"_id": task_id})
-            data_keys = list(current_state["context_data"].keys())
+            ctx = current_state["context_data"]
 
-            decision_prompt = f"""
-            Goal: {user_query}
-            Current Data Keys Available: {data_keys}
-            Rules:
-            1. No 'suppliers' -> LAPTOP_FINDER.
-            2. Have 'suppliers' but no 'compliance_report' -> COMPLIANCE_VALIDATOR.
-            3. Both exist -> FINISH.
-            Return JSON: {{"next_step": "ROLE_NAME", "reason": "why"}}
-            """
+            # Deterministic state-machine routing — avoids LLM hallucination on data_keys
+            if "suppliers" not in ctx:
+                next_step = "LAPTOP_FINDER"
+            elif "compliance_report" not in ctx:
+                next_step = "COMPLIANCE_VALIDATOR"
+            else:
+                next_step = "FINISH"
 
-            res = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a Procurement Orchestrator."},
-                    {"role": "user", "content": decision_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-
-            decision = json.loads(res.choices[0].message.content)
-            next_step = decision["next_step"]
+            print(f"🔀 Routing → {next_step}")
 
             if next_step == "FINISH":
                 break
 
-            if step > 0:
+            # LAPTOP_FINDER calls Voyage AI on every run — always respect 3 RPM limit.
+            # COMPLIANCE_VALIDATOR uses Groq only, so no cooldown needed there.
+            if next_step == "LAPTOP_FINDER" and step > 0:
                 print("⏳ Cooldown (22s)...")
                 time.sleep(22)
 
@@ -95,7 +89,7 @@ class ProcurementSupervisor:
                     "$push": {"history": "LAPTOP_FINDER_COMPLETED"},
                 })
             elif next_step == "COMPLIANCE_VALIDATOR":
-                suppliers = current_state["context_data"].get("suppliers", [])
+                suppliers = ctx.get("suppliers", [])
                 report = self.compliance_validator.execute_task(suppliers)
                 self.db.tasks.update_one({"_id": task_id}, {
                     "$set": {"context_data.compliance_report": report},
