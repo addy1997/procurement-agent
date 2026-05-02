@@ -4,7 +4,7 @@ A serverless AI-driven procurement orchestration system deployed on AWS Lambda (
 
 ## Architecture
 
-![System Architecture](docs/architecture.png)
+![System Architecture](https://github.com/addy1997/procurement-agent/blob/main/docs/System_Architecture.png)
 
 The system operates across two layers:
 
