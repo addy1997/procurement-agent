@@ -18,6 +18,7 @@ lambda_dist/
 .env
 .env.*
 *.env
+!.env.example
 
 # IDE
 .vscode/

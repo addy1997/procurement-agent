@@ -127,19 +127,59 @@ bash scripts/setup_hooks.sh
 
 This installs a pre-commit hook that blocks accidental commits of `.env` files and `venv/` directories.
 
-### Configure secrets
+### Get your API keys
 
-Set the following as environment variables or in AWS SSM Parameter Store (loaded automatically by `config/config_manager.py`):
+You need accounts and API keys from three services before running anything locally. The project does **not** ship any keys — you must supply your own.
 
-| Key | Description |
-|---|---|
-| `GROQ_API_KEY` | Groq LLM API key |
-| `VOYAGE_API_KEY` | Voyage AI embeddings key |
-| `MONGODB_URI` | MongoDB Atlas connection string |
-| `ERP_ENDPOINTS` | Comma-separated ERP base URLs |
-| `SUPPLIER_API_URL` | External supplier API base URL |
-| `COMPLIANCE_DB_URL` | Compliance database base URL |
-| `LOGISTICS_API_URL` | 3rd-party logistics API base URL |
+| Service | Where to get your key | Used for |
+|---|---|---|
+| **Groq** | [console.groq.com](https://console.groq.com/) → API Keys | LLM inference (free tier available) |
+| **Voyage AI** | [dashboard.voyageai.com](https://dashboard.voyageai.com/) → API Keys | Text embeddings (free tier: 200M tokens) |
+| **MongoDB Atlas** | [cloud.mongodb.com](https://cloud.mongodb.com/) → Database → Connect | Vector store + task persistence (free M0 cluster available) |
+
+> **Voyage AI free tier note:** the free plan allows 3 requests per minute. The supervisor already inserts a 22-second cooldown between embedding calls to stay within this limit. If you upgrade to a paid plan you can reduce or remove those sleeps in `agents/supervisor.py`.
+
+### Create your `.env` file
+
+Create a file named `.env` in the project root (it is git-ignored and will never be committed):
+
+```bash
+cp .env.example .env   # if .env.example exists, or create from scratch:
+touch .env
+```
+
+Then open `.env` and fill in your keys:
+
+```dotenv
+# .env — never commit this file
+
+# Groq (https://console.groq.com/keys)
+GROQ_API_KEY=gsk_...
+
+# Voyage AI (https://dashboard.voyageai.com/api-keys)
+VOYAGE_API_KEY=pa-...
+
+# MongoDB Atlas connection string
+# Format: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?appName=<app>
+MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/?appName=Cluster0
+
+# Optional — only needed for integrations/erp_connector.py
+ERP_ENDPOINTS=https://erp1.example.com,https://erp2.example.com
+
+# Optional — only needed for integrations/supplier_api.py
+SUPPLIER_API_URL=https://api.supplier-directory.example.com
+SUPPLIER_API_KEY=
+
+# Optional — only needed for integrations/compliance_db.py
+COMPLIANCE_DB_URL=https://compliance.example.com
+COMPLIANCE_DB_KEY=
+
+# Optional — only needed for integrations/logistics_api.py
+LOGISTICS_API_URL=https://logistics.example.com
+LOGISTICS_API_KEY=
+```
+
+The application loads this file automatically via `python-dotenv`. On AWS Lambda, set these as Lambda environment variables or store them in SSM Parameter Store — `config/config_manager.py` checks environment variables first, then falls back to SSM.
 
 ### Seed the database
 

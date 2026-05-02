@@ -10,12 +10,22 @@ BLOCKED_PATTERNS=(
     '(^|/)env/'
 )
 
+# Files that match a blocked pattern but are safe to commit
+ALLOWLIST=(
+    '.env.example'
+)
+
 staged=$(git diff --cached --name-only)
 
 found=()
 for pattern in "${BLOCKED_PATTERNS[@]}"; do
     while IFS= read -r file; do
-        [[ -n "$file" ]] && found+=("$file")
+        if [[ -z "$file" ]]; then continue; fi
+        allowed=false
+        for safe in "${ALLOWLIST[@]}"; do
+            [[ "$file" == *"$safe" ]] && allowed=true && break
+        done
+        $allowed || found+=("$file")
     done < <(echo "$staged" | grep -E "$pattern" || true)
 done
 
