@@ -1,8 +1,11 @@
+aiohttp
 boto3
 botocore
 groq
 langchain-mongodb
 langgraph
+numpy
+pydantic
 pymongo
 python-dotenv
 voyageai

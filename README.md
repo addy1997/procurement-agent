@@ -197,6 +197,90 @@ python infra/build_lambda.py
 
 The script packages the source into `procurbot_final.zip`, uploads it to the configured S3 bucket, and updates the Lambda function via the S3 URI.
 
+## Running Locally
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/addy1997/procurement-agent.git
+cd procurement-agent
+```
+
+### 2. Create and activate a virtual environment
+
+```bash
+python3 -m venv venv
+
+# macOS / Linux
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Install git hooks (one-time)
+
+```bash
+bash scripts/setup_hooks.sh
+```
+
+### 5. Create your `.env` file
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in your Groq API key, Voyage AI API key, and MongoDB URI (see [Get your API keys](#get-your-api-keys) below).
+
+### 6. Seed the database (first run only)
+
+This populates MongoDB with supplier records, generates vector embeddings, and registers the sub-agents. You need a working `.env` before running these.
+
+```bash
+python scripts/seed_data.py               # insert supplier records
+python scripts/create_embeddings.py       # generate and store embeddings
+python agents/registry.py                 # register sub-agents in MongoDB
+```
+
+### 7. Run the agent
+
+**Full pipeline** (Laptop-Finder → Compliance-Validator → synthesis):
+
+```bash
+python agents/supervisor.py
+```
+
+**Interactive chatbot** (single-turn RAG over the supplier database):
+
+```bash
+python llm/groq_client.py
+```
+
+Type your query at the `You:` prompt. Type `exit` to quit.
+
+**Simulate a Lambda invocation** locally:
+
+```bash
+python -c "
+from agents.supervisor import lambda_handler
+import json
+result = lambda_handler({'query': 'Find laptop suppliers in London'}, None)
+print(json.loads(result['body'])['recommendation'])
+"
+```
+
+### Rate limits on the free tier
+
+Voyage AI's free plan allows **3 requests per minute**. The supervisor inserts a 22-second cooldown between embedding calls automatically — expect each full pipeline run to take about 45–60 seconds.
+
+---
+
 ## Usage
 
 Invoke via API Gateway or directly as a Lambda test event:
