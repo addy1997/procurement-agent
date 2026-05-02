@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Block commits that include .env files or venv directories.
+
+set -euo pipefail
+
+BLOCKED_PATTERNS=(
+    '(^|/)\.env(\.|$)'   # .env, .env.local, .env.production, etc.
+    '(^|/)venv/'
+    '(^|/)\.venv/'
+    '(^|/)env/'
+)
+
+staged=$(git diff --cached --name-only)
+
+found=()
+for pattern in "${BLOCKED_PATTERNS[@]}"; do
+    while IFS= read -r file; do
+        [[ -n "$file" ]] && found+=("$file")
+    done < <(echo "$staged" | grep -E "$pattern" || true)
+done
+
+if [[ ${#found[@]} -gt 0 ]]; then
+    echo ""
+    echo "  ✗ COMMIT BLOCKED — sensitive files detected in staging area:"
+    for f in "${found[@]}"; do
+        echo "      $f"
+    done
+    echo ""
+    echo "  Remove them with:"
+    for f in "${found[@]}"; do
+        echo "      git restore --staged \"$f\""
+    done
+    echo ""
+    exit 1
+fi

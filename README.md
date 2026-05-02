@@ -119,6 +119,14 @@ procurement-agent/
 pip install -r requirements.txt
 ```
 
+### Install git hooks (one-time, after cloning)
+
+```bash
+bash scripts/setup_hooks.sh
+```
+
+This installs a pre-commit hook that blocks accidental commits of `.env` files and `venv/` directories.
+
 ### Configure secrets
 
 Set the following as environment variables or in AWS SSM Parameter Store (loaded automatically by `config/config_manager.py`):
