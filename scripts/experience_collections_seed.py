@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from datetime import datetime
-from config_manager import get_config
+from config.config_manager import get_config
 
 # Connect
 mongo_uri = get_config("MONGODB_URI")
